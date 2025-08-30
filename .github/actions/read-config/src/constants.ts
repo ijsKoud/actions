@@ -1,0 +1,1 @@
+export const DEFAULT_CONFIG_LOCATION = ".github/project-config.yaml";
