@@ -16,6 +16,7 @@ async function run() {
     const configPath = getInput('config-path') || DEFAULT_CONFIG_LOCATION;
     const config = await getConfig(configPath);
 
+    console.info(`Loaded config: ${JSON.stringify(config, null, 2)}`);
     setOutput('tests', config.tests);
   } catch (error) {
     setFailed(`Action failed: ${error}`);

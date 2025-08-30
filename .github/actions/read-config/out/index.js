@@ -50511,6 +50511,7 @@ async function run() {
     try {
         const configPath = (0, core_1.getInput)('config-path') || constants_1.DEFAULT_CONFIG_LOCATION;
         const config = await getConfig(configPath);
+        console.info(`Loaded config: ${JSON.stringify(config, null, 2)}`);
         (0, core_1.setOutput)('tests', config.tests);
     }
     catch (error) {
