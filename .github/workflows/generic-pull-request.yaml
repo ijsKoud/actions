@@ -1,0 +1,32 @@
+name: Generic Pull Request Workflow
+
+on: [pull_request]
+
+jobs:
+  read-config:
+    runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.read-config.outputs.tests }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Read config
+        id: read-config
+        uses: ./.github/actions/read-config
+        with:
+          config-path: .github/project-config.yaml
+
+  run-tests:
+    needs: read-config
+    if: ${{ fromJson(needs.read-config.outputs.tests).enabled == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run tests
+        run: |
+          chmod +x ${{ fromJson(needs.read-config.outputs.tests).script }}
+          ${{ fromJson(needs.read-config.outputs.tests).script }}
+        shell: bash
