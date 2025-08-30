@@ -1,0 +1,13 @@
+name: 'config'
+description: 'Reads a YAML config and sets outputs to control job execution.'
+runs:
+  using: 'node20'
+  main: 'out/index.js'
+inputs:
+  config-path:
+    description: 'Path to the YAML config file.'
+    required: false
+    default: '.github/project-config.yaml'
+outputs:
+  tests-enabled:
+    description: 'Whether tests are enabled.'
