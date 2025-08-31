@@ -12,10 +12,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Read config
-        id: read-config
-        # uses: ijsKoud/actions/.github/actions/read-config@main
+      - name: Read config (local)
+        if: ${{ env.ACT }}
         uses: ./.github/actions/read-config
+        with:
+          config-path: .github/project-config.yaml
+
+      - name: Read config (remote)
+        if: ${{ !env.ACT }}
+        uses: ijsKoud/actions/.github/actions/read-config@main
         with:
           config-path: .github/project-config.yaml
 
