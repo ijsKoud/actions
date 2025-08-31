@@ -38,8 +38,8 @@ jobs:
         if: ${{ needs.config.outputs.language == 'kotlin' || needs.config.outputs.language == 'java' }}
         uses: actions/setup-java@v4
         with:
-          java-version: '24'
-          distribution: 'zulu' 
+          java-version: ${{ fromJson(needs.config.outputs.language).properties.version }}
+          distribution: ${{ fromJson(needs.config.outputs.language).properties.distribution }}
 
       - name: Run tests
         run: |
