@@ -9,11 +9,11 @@ jobs:
       tests: ${{ steps.read-config.outputs.tests }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Read config
         id: read-config
-        uses: ./.github/actions/read-config
+        uses: ijsKoud/actions/.github/actions/read-config@main
         with:
           config-path: .github/project-config.yaml
 
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Run tests
         run: |
