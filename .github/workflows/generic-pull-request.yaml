@@ -6,19 +6,21 @@ jobs:
   config:
     runs-on: ubuntu-latest
     outputs:
-      tests: ${{ steps.read-config.outputs.tests }}
-      language: ${{ steps.read-config.outputs.language }}
+      tests: ${{ steps.read-config-local.outputs.tests || steps.read-config-remote.outputs.tests }}
+      language: ${{ steps.read-config-local.outputs.language || steps.read-config-remote.outputs.language }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
       - name: Read config (local)
+        id: read-config-local
         if: ${{ env.ACT }}
         uses: ./.github/actions/read-config
         with:
           config-path: .github/project-config.yaml
 
       - name: Read config (remote)
+        id: read-config-remote
         if: ${{ !env.ACT }}
         uses: ijsKoud/actions/.github/actions/read-config@main
         with:
