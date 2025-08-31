@@ -11,7 +11,11 @@ exports.validateConfig = validateConfig;
 const zod_1 = __nccwpck_require__(7311);
 const constants_1 = __nccwpck_require__(9955);
 const configSchema = zod_1.z.object({
-    language: zod_1.z.enum(constants_1.SUPPORTED_LANGUAGES),
+    name: zod_1.z.string(),
+    language: zod_1.z.object({
+        name: zod_1.z.enum(constants_1.SUPPORTED_LANGUAGES),
+        properties: zod_1.z.record(zod_1.z.string(), zod_1.z.any()).nullish(),
+    }),
     tests: zod_1.z.object({
         enabled: zod_1.z.boolean().default(false),
         script: zod_1.z.string().default(""),
