@@ -18,6 +18,7 @@ async function run() {
 
     console.info(`Loaded config: ${JSON.stringify(config, null, 2)}`);
     setOutput('tests', config.tests);
+    setOutput("language", config.language)
   } catch (error) {
     setFailed(`Action failed: ${error}`);
   }
