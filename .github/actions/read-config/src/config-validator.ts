@@ -2,7 +2,11 @@ import { z } from "zod";
 import { SUPPORTED_LANGUAGES } from "./constants";
 
 const configSchema = z.object({
-  language: z.enum(SUPPORTED_LANGUAGES),
+  name: z.string(),
+  language: z.object({
+    name: z.enum(SUPPORTED_LANGUAGES),
+    properties: z.record(z.string(), z.any()).nullish(),
+  }),
   tests: z.object({
     enabled: z.boolean().default(false),
     script: z.string().default(""),

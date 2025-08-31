@@ -1,4 +1,8 @@
-language: unsupported
+name: actions
+
+language:
+  name: unsupported
+  properties:
 
 tests:
   enabled: true
