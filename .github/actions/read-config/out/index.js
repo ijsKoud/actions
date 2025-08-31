@@ -9,7 +9,9 @@
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.validateConfig = validateConfig;
 const zod_1 = __nccwpck_require__(7311);
+const constants_1 = __nccwpck_require__(9955);
 const configSchema = zod_1.z.object({
+    language: zod_1.z.enum(constants_1.SUPPORTED_LANGUAGES),
     tests: zod_1.z.object({
         enabled: zod_1.z.boolean().default(false),
         script: zod_1.z.string().default(""),
@@ -32,8 +34,9 @@ function validateConfig(config) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.DEFAULT_CONFIG_LOCATION = void 0;
+exports.SUPPORTED_LANGUAGES = exports.DEFAULT_CONFIG_LOCATION = void 0;
 exports.DEFAULT_CONFIG_LOCATION = ".github/project-config.yaml";
+exports.SUPPORTED_LANGUAGES = ["kotlin", "java", "unsupported"];
 
 
 /***/ }),
@@ -50513,6 +50516,7 @@ async function run() {
         const config = await getConfig(configPath);
         console.info(`Loaded config: ${JSON.stringify(config, null, 2)}`);
         (0, core_1.setOutput)('tests', config.tests);
+        (0, core_1.setOutput)("language", config.language);
     }
     catch (error) {
         (0, core_1.setFailed)(`Action failed: ${error}`);

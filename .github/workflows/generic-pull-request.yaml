@@ -6,13 +6,22 @@ jobs:
   config:
     runs-on: ubuntu-latest
     outputs:
-      tests: ${{ steps.read-config.outputs.tests }}
+      tests: ${{ steps.read-config-local.outputs.tests || steps.read-config-remote.outputs.tests }}
+      language: ${{ steps.read-config-local.outputs.language || steps.read-config-remote.outputs.language }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Read config
-        id: read-config
+      - name: Read config (local)
+        id: read-config-local
+        if: ${{ env.ACT }}
+        uses: ./.github/actions/read-config
+        with:
+          config-path: .github/project-config.yaml
+
+      - name: Read config (remote)
+        id: read-config-remote
+        if: ${{ !env.ACT }}
         uses: ijsKoud/actions/.github/actions/read-config@main
         with:
           config-path: .github/project-config.yaml
@@ -24,6 +33,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+
+      - name: Install Java
+        if: ${{ needs.config.outputs.language == 'kotlin' || needs.config.outputs.language == 'java' }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: '24'
+          distribution: 'zulu' 
 
       - name: Run tests
         run: |
