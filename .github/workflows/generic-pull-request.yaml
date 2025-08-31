@@ -7,13 +7,15 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tests: ${{ steps.read-config.outputs.tests }}
+      language: ${{ steps.read-config.outputs.language }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
       - name: Read config
         id: read-config
-        uses: ijsKoud/actions/.github/actions/read-config@main
+        # uses: ijsKoud/actions/.github/actions/read-config@main
+        uses: ./.github/actions/read-config
         with:
           config-path: .github/project-config.yaml
 
@@ -24,6 +26,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+
+      - name: Install Java
+        if: ${{ needs.config.outputs.language == 'kotlin' || needs.config.outputs.language == 'java' }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: '24'
+          distribution: 'zulu' 
 
       - name: Run tests
         run: |
