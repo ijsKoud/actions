@@ -10,7 +10,7 @@ jobs:
       language: ${{ steps.read-config-local.outputs.language || steps.read-config-remote.outputs.language }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Read config (local)
         id: read-config-local
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Java
         if: ${{ fromJson(needs.config.outputs.language).name == 'kotlin' || fromJson(needs.config.outputs.language).name == 'java' }}
