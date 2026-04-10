@@ -19,8 +19,8 @@ importers:
         version: 4.1.11
     devDependencies:
       '@types/node':
-        specifier: ^24.5.2
-        version: 24.5.2
+        specifier: ^24.12.2
+        version: 24.12.2
       '@vercel/ncc':
         specifier: ^0.38.4
         version: 0.38.4
@@ -46,8 +46,8 @@ packages:
     resolution: {integrity: sha512-vBZP4NlzfOlerQTnba4aqZoMhE/a9HY7HRqoOPaETQcSQuWEIyZMHGfVu6w9wGtGK5fED5qRs2DteVCjOH60sA==}
     engines: {node: '>=14'}
 
-  '@types/node@24.5.2':
-    resolution: {integrity: sha512-FYxk1I7wPv3K2XBaoyH2cTnocQEu8AOZ60hPbsyukMPLv5/5qr7V1i8PLHdl6Zf87I+xZXFvPCXYjiTFq+YSDQ==}
+  '@types/node@24.12.2':
+    resolution: {integrity: sha512-A1sre26ke7HDIuY/M23nd9gfB+nrmhtYyMINbjI1zHJxYteKR6qSMX56FsmjMcDb3SMcjJg5BiRRgOCC/yBD0g==}
 
   '@vercel/ncc@0.38.4':
     resolution: {integrity: sha512-8LwjnlP39s08C08J5NstzriPvW1SP8Zfpp1BvC2sI35kPeZnHfxVkCwu4/+Wodgnd60UtT1n8K8zw+Mp7J9JmQ==}
@@ -62,8 +62,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  undici-types@7.12.0:
-    resolution: {integrity: sha512-goOacqME2GYyOZZfb5Lgtu+1IDmAlAEu5xnD3+xTzS10hT0vzpf0SPjkXwAw9Jm+4n/mQGDP3LO8CPbYROeBfQ==}
+  undici-types@7.16.0:
+    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
   undici@5.29.0:
     resolution: {integrity: sha512-raqeBD6NQK4SkWhQzeYKd1KmIG6dllBOTt55Rmkt4HtI9mwdWtJljnrXjAFUBLTSN67HWrOIZ3EPF4kjUw80Bg==}
@@ -97,9 +97,9 @@ snapshots:
 
   '@fastify/busboy@2.1.1': {}
 
-  '@types/node@24.5.2':
+  '@types/node@24.12.2':
     dependencies:
-      undici-types: 7.12.0
+      undici-types: 7.16.0
 
   '@vercel/ncc@0.38.4': {}
 
@@ -107,7 +107,7 @@ snapshots:
 
   typescript@6.0.2: {}
 
-  undici-types@7.12.0: {}
+  undici-types@7.16.0: {}
 
   undici@5.29.0:
     dependencies:
