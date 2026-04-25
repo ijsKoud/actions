@@ -36,7 +36,7 @@ jobs:
       - name: Extract bumped apps
         id: extract-apps
         run: |
-          if [ "${{ github.event_name }}" = "workflow_call" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             APPS="${{ github.event.inputs.apps }}"
             echo "apps_dir=${{ github.event.inputs.apps_dir }}" >> $GITHUB_OUTPUT
           else
