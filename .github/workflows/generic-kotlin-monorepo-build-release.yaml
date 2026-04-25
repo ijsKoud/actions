@@ -159,15 +159,15 @@ jobs:
 
       - name: Commit once for all apps
         run: |
+          cd gitops
           APPS=$(cat ../apps.json | jq -r '.[]')
 
-          cd gitops
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
           git add .
 
           if ! git diff --staged --quiet; then
-            git commit -m "chore: update image for app: $APPS to $DIGEST"
+            git commit -m "chore: update image(s) for app(s): $APPS from ${{ needs.check-bump.outputs.event_repo }}"
             git push
           else
             echo "No changes to commit for ${{ needs.check-bump.outputs.event_repo }}-${{ matrix.app }}"
@@ -277,6 +277,8 @@ jobs:
           TIMEOUT=600  # 10 minutes
           INTERVAL=30  # Check every 30 seconds
           ELAPSED=0
+          STATUS_SUCCESS_COUNT_REQUIRED=3 # Require 3 consecutive successful checks to confirm stability
+          STATUS_SUCESS_COUNT=0
 
           while [ $ELAPSED -lt $TIMEOUT ]; do
             RESPONSE=$(curl -s "$ARGOCD_URL/api/v1/applications/$APP_NAME" \
@@ -288,6 +290,12 @@ jobs:
             echo "Sync status: $SYNC_STATUS, Health status: $HEALTH_STATUS (elapsed: ${ELAPSED}s)"
 
             if [ "$SYNC_STATUS" = "Synced" ] && [ "$HEALTH_STATUS" = "Healthy" ]; then
+              STATUS_SUCESS_COUNT=$((STATUS_SUCESS_COUNT + 1))
+            else
+              STATUS_SUCESS_COUNT=0 # Reset success count if any check fails
+            fi
+
+            if [ $STATUS_SUCESS_COUNT -ge $STATUS_SUCCESS_COUNT_REQUIRED ]; then
               echo "✅ Deployment successful! Application $APP_NAME is synced and healthy."
               exit 0
             fi
