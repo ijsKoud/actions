@@ -105,6 +105,10 @@ jobs:
           fi
       - name: Trigger sync on ArgoCD
         run: |
+          APP_NAME="${{ needs.prepare.outputs.event_repo }}-${{ matrix.app }}"
+          ARGOCD_URL="${{ secrets.ARGOCD_SERVER_URL }}"
+          TOKEN="${{ secrets.ARGOCD_TOKEN }}"
+
           echo "Triggering ArgoCD sync for application: $APP_NAME"
           curl -X POST "$ARGOCD_URL/api/v1/applications/$APP_NAME/sync" \
             -H "Authorization: Bearer $TOKEN" \
@@ -115,6 +119,8 @@ jobs:
             --show-error
       - name: Wait for ArgoCD sync to complete
         run: |
+          ARGOCD_URL="${{ secrets.ARGOCD_SERVER_URL }}"
+          TOKEN="${{ secrets.ARGOCD_TOKEN }}"
           echo "ArgoCD sync triggered. Waiting for deployment to complete..."
 
           # Poll for sync completion
