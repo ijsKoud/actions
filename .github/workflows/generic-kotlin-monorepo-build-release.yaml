@@ -1,4 +1,4 @@
-name: Kotlin Monorepo - Build and Release
+name: Build and Deploy Apps
 
 permissions:
   id-token: write
@@ -14,6 +14,11 @@ on:
     types: [version-bumped]
   workflow_dispatch:
     inputs:
+      apps_dir:
+        description: 'Directory containing the apps'
+        type: string
+        default: 'src/apps'
+        required: false
       apps:
         description: 'Comma-separated list of app names to build and deploy'
         type: string
@@ -23,6 +28,7 @@ jobs:
   check-bump:
     runs-on: ubuntu-latest
     outputs:
+      apps_dir: ${{ steps.set-inputs.outputs.apps_dir }}
       bumped_apps: ${{ steps.extract-apps.outputs.apps }}
       repo: ${{ steps.set-repo.outputs.repo }}
       event_repo: ${{ steps.set-repo.outputs.event_repo }}
@@ -32,9 +38,12 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             APPS="${{ github.event.inputs.apps }}"
+            echo "apps_dir=${{ github.event.inputs.apps_dir }}" >> $GITHUB_OUTPUT
           else
             APPS="${{ github.event.client_payload.apps }}"
+            echo "apps_dir=${{ github.event.client_payload.apps_dir }}" >> $GITHUB_OUTPUT
           fi
+          
           APPS_JSON=$(echo "$APPS" | tr ',' '\n' | awk '{$1=$1};1' | sed '/^$/d' | jq -R . | jq -s . | tr -d '\n')
           echo "apps=$APPS_JSON" >> $GITHUB_OUTPUT
 
@@ -57,7 +66,7 @@ jobs:
       - name: Get app version
         id: version
         run: |
-          VERSION=$(grep 'version = ' "src/apps/${{ matrix.app }}/build.gradle.kts" | sed 's/version = "\(.*\)"/\1/')
+          VERSION=$(grep 'version = ' "${{ needs.check-bump.outputs.apps_dir }}${{ matrix.app }}/build.gradle.kts" | sed 's/version = "\(.*\)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
