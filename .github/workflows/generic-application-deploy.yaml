@@ -27,11 +27,31 @@ on:
         required: true
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      bumped_apps: ${{ steps.extract-apps.outputs.apps }}
+      repo: ${{ steps.set-repo.outputs.repo }}
+      event_repo: ${{ steps.set-repo.outputs.event_repo }}
+    steps:
+      - name: setting variables
+        id: extract-apps
+        run: |
+          APPS="${{ inputs.apps }}"
+          APPS_JSON=$(echo "$APPS" | tr ',' '\n' | awk '{$1=$1};1' | sed '/^$/d' | jq -R . | jq -s . | tr -d '\n')
+          echo "apps=$APPS_JSON" >> $GITHUB_OUTPUT
+
+      - name: Set lowercase repository names
+        id: set-repo
+        run: |
+          echo "repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "event_repo=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
   deploy:
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        app: ${{ fromJson(inputs.apps) }}
+        app: ${{ fromJson(needs.prepare.outputs.bumped_apps) }}
     environment:
       name: production-${{ matrix.app }}
       url: https://github.com/ijskoud/homelab-gitops
@@ -59,7 +79,7 @@ jobs:
       - name: Create ArgoCD application if needed and trigger sync for ${{ matrix.app }}
         run: |
           TEMPLATE_FILE="gitops/template/application.template.json"
-          APP_NAME="${{ needs.check-bump.outputs.event_repo }}-${{ matrix.app }}"
+          APP_NAME="${{ needs.prepare.outputs.event_repo }}-${{ matrix.app }}"
           ARGOCD_URL="${{ secrets.ARGOCD_SERVER_URL }}"
           TOKEN="${{ secrets.ARGOCD_TOKEN }}"
 

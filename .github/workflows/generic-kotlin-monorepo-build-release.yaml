@@ -23,7 +23,7 @@ on:
         required: true
 
 jobs:
-  check-bump:
+  prepare:
     name: Check for bumped apps
     runs-on: ubuntu-latest
     outputs:
@@ -49,11 +49,11 @@ jobs:
 
   build-and-release:
     name: Build and release
-    needs: check-bump
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        app: ${{ fromJson(needs.check-bump.outputs.bumped_apps) }}
+        app: ${{ fromJson(needs.prepare.outputs.bumped_apps) }}
     steps:
       - name: Create GitHub App Token
         uses: actions/create-github-app-token@v3
@@ -70,7 +70,7 @@ jobs:
       - name: Get app version
         id: version
         run: |
-          VERSION=$(grep 'version = ' "${{ needs.check-bump.outputs.apps_dir }}/${{ matrix.app }}/build.gradle.kts" | sed 's/version = "\(.*\)"/\1/')
+          VERSION=$(grep 'version = ' "${{ needs.prepare.outputs.apps_dir }}/${{ matrix.app }}/build.gradle.kts" | sed 's/version = "\(.*\)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
@@ -94,7 +94,7 @@ jobs:
             APP=${{ matrix.app }}
             VERSION=${{ steps.version.outputs.version }}
           push: true
-          tags: ghcr.io/${{ needs.check-bump.outputs.repo }}-${{ matrix.app }}:${{ steps.version.outputs.version }}
+          tags: ghcr.io/${{ needs.prepare.outputs.repo }}-${{ matrix.app }}:${{ steps.version.outputs.version }}
 
       - name: Save image digest
         run: echo "${{ steps.build.outputs.digest }}" > ${{ matrix.app }}-digest.txt
@@ -106,7 +106,7 @@ jobs:
           path: ${{ matrix.app }}-digest.txt
 
   pre-deploy:
-    needs: [check-bump, build-and-release]
+    needs: [prepare, build-and-release]
     runs-on: ubuntu-latest
     outputs:
       apps: ${{ steps.export-apps.outputs.apps }}
@@ -119,7 +119,7 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: |
-            ${{ needs.check-bump.outputs.event_repo }}
+            ${{ needs.prepare.outputs.event_repo }}
             homelab-gitops
 
       - uses: actions/download-artifact@v8
@@ -140,7 +140,7 @@ jobs:
           path: gitops
 
       - name: Prepare app list
-        run: echo '${{ needs.check-bump.outputs.bumped_apps }}' > apps.json
+        run: echo '${{ needs.prepare.outputs.bumped_apps }}' > apps.json
 
       - name: Update deployment files for bumped apps
         run: |
@@ -148,13 +148,13 @@ jobs:
           APPS=$(cat ../apps.json | jq -r '.[]')
 
           for APP in $APPS; do
-            DEPLOYMENT_DIR="apps/${{ needs.check-bump.outputs.event_repo }}-$APP"
+            DEPLOYMENT_DIR="apps/${{ needs.prepare.outputs.event_repo }}-$APP"
             DEPLOYMENT_FILE="$DEPLOYMENT_DIR/deployment.yaml"
 
             DIGEST=$(cat ../digests/$APP-digest.txt)
-            APP_NAME="${{ needs.check-bump.outputs.event_repo }}-$APP"
+            APP_NAME="${{ needs.prepare.outputs.event_repo }}-$APP"
 
-            IMAGE="ghcr.io/${{ needs.check-bump.outputs.repo }}-$APP@$DIGEST"
+            IMAGE="ghcr.io/${{ needs.prepare.outputs.repo }}-$APP@$DIGEST"
             TEMPLATE_FILE="../local/deployment/deployment-$APP.template.yaml"
 
             if [ ! -f "$TEMPLATE_FILE" ]; then
@@ -185,7 +185,7 @@ jobs:
           git add .
 
           if ! git diff --staged --quiet; then
-            git commit -m "chore: update image(s) for app(s): $APPS from ${{ needs.check-bump.outputs.event_repo }}"
+            git commit -m "chore: update image(s) for app(s): $APPS from ${{ needs.prepare.outputs.event_repo }}"
             git push
           else
             echo "No changes to commit for $APPS"
