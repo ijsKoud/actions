@@ -12,7 +12,7 @@ concurrency:
 on:
   repository_dispatch:
     types: [version-bumped]
-  workflow_dispatch:
+  workflow_call:
     inputs:
       apps_dir:
         description: 'Directory containing the apps'
@@ -36,7 +36,7 @@ jobs:
       - name: Extract bumped apps
         id: extract-apps
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "workflow_call" ]; then
             APPS="${{ github.event.inputs.apps }}"
             echo "apps_dir=${{ github.event.inputs.apps_dir }}" >> $GITHUB_OUTPUT
           else
