@@ -119,6 +119,7 @@ jobs:
             --show-error
       - name: Wait for ArgoCD sync to complete
         run: |
+          APP_NAME="${{ needs.prepare.outputs.event_repo }}-${{ matrix.app }}"
           ARGOCD_URL="${{ secrets.ARGOCD_SERVER_URL }}"
           TOKEN="${{ secrets.ARGOCD_TOKEN }}"
           echo "ArgoCD sync triggered. Waiting for deployment to complete..."
