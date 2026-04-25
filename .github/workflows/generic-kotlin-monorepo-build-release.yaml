@@ -16,10 +16,6 @@ on:
         description: "Comma-separated list of app names to build and deploy"
         type: string
         required: true
-      github_app_token:
-        description: "GitHub token for authentication"
-        type: string
-        required: true
     secrets:
       APP_CLIENT_ID:
         required: true
