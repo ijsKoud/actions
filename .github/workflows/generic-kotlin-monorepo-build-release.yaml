@@ -28,7 +28,7 @@ jobs:
   check-bump:
     runs-on: ubuntu-latest
     outputs:
-      apps_dir: ${{ steps.set-inputs.outputs.apps_dir }}
+      apps_dir: ${{ steps.extract-apps.outputs.apps_dir }}
       bumped_apps: ${{ steps.extract-apps.outputs.apps }}
       repo: ${{ steps.set-repo.outputs.repo }}
       event_repo: ${{ steps.set-repo.outputs.event_repo }}
@@ -66,7 +66,7 @@ jobs:
       - name: Get app version
         id: version
         run: |
-          VERSION=$(grep 'version = ' "${{ needs.check-bump.outputs.apps_dir }}${{ matrix.app }}/build.gradle.kts" | sed 's/version = "\(.*\)"/\1/')
+          VERSION=$(grep 'version = ' "${{ needs.check-bump.outputs.apps_dir }}/${{ matrix.app }}/build.gradle.kts" | sed 's/version = "\(.*\)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
