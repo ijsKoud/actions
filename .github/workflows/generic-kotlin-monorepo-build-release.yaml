@@ -161,7 +161,7 @@ jobs:
 
       - name: Commit once for all apps
         run: |
-          APPS=$(${{ needs.check-bump.outputs.bumped_apps }} | jq -r '.[]')
+          APPS=$(cat ../apps.json | jq -r '.[]')
 
           cd gitops
           git config user.email "action@github.com"
