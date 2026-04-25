@@ -117,9 +117,6 @@ jobs:
     strategy:
       matrix:
         app: ${{ fromJson(needs.check-bump.outputs.bumped_apps) }}
-    concurrency:
-      group: gitops-deploy
-      cancel-in-progress: false
     environment:
       name: production-${{ matrix.app }}
       url: https://github.com/ijskoud/homelab-gitops
@@ -216,9 +213,10 @@ jobs:
                 "namespace": "default"
               },
               "syncPolicy": {
-                "automated": {
-                  "prune": true,
-                  "selfHeal": true
+                "syncPolicy": {
+                  "syncOptions": [
+                    "CreateNamespace=true"
+                  ]
                 }
               }
             }
