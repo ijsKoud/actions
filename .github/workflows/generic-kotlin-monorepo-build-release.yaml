@@ -97,13 +97,13 @@ jobs:
           tags: ghcr.io/${{ needs.check-bump.outputs.repo }}-${{ matrix.app }}:${{ steps.version.outputs.version }}
 
       - name: Save image digest
-        run: echo "${{ steps.build.outputs.digest }}" > digest.txt
+        run: echo "${{ steps.build.outputs.digest }}" > ${{ matrix.app }}-digest.txt
 
       - name: Upload image digests
         uses: actions/upload-artifact@v7
         with:
           name: image-digests-${{ matrix.app }}
-          path: digest.txt
+          path: ${{ matrix.app }}-digest.txt
 
   pre-deploy:
     needs: [check-bump, build-and-release]
@@ -126,6 +126,7 @@ jobs:
         with:
           path: digests
           pattern: "!*.dockerbuild"
+          merge-multiple: true
 
       - uses: actions/checkout@v6
         with:
@@ -150,7 +151,7 @@ jobs:
             DEPLOYMENT_DIR="apps/${{ needs.check-bump.outputs.event_repo }}-$APP"
             DEPLOYMENT_FILE="$DEPLOYMENT_DIR/deployment.yaml"
 
-            DIGEST=$(cat ../digests/image-digests-$APP/digest.txt)
+            DIGEST=$(cat ../digests/$APP-digest.txt)
             APP_NAME="${{ needs.check-bump.outputs.event_repo }}-$APP"
 
             IMAGE="ghcr.io/${{ needs.check-bump.outputs.repo }}-$APP@$DIGEST"
