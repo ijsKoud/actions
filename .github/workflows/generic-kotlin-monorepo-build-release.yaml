@@ -120,7 +120,7 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: |
             ${{ needs.check-bump.outputs.event_repo }}
-            gitops
+            homelab-gitops
 
       - uses: actions/download-artifact@v4
         with:
