@@ -1,9 +1,4 @@
-name: Build and Deploy Apps
-
-permissions:
-  id-token: write
-  contents: read
-  packages: write
+name: Kotlin Monorepo - Build and Release Apps
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,18 +17,14 @@ on:
         type: string
         required: true
     secrets:
+      GITHUB_TOKEN:
+        required: true
       GITOPS_TOKEN:
         required: true
-      ARGOCD_TOKEN:
-        required: true
-      ARGOCD_SERVER_URL:
-        required: true
-      TAILSCALE_CLIENT_ID:
-        required: true
-      TAILSCALE_CLIENT_SECRET:
-        required: true
+
 jobs:
   check-bump:
+    name: Check for bumped apps
     runs-on: ubuntu-latest
     outputs:
       apps_dir: ${{ steps.extract-apps.outputs.apps_dir }}
@@ -44,13 +35,8 @@ jobs:
       - name: Extract bumped apps
         id: extract-apps
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            APPS="${{ github.event.inputs.apps }}"
-            echo "apps_dir=${{ github.event.inputs.apps_dir }}" >> $GITHUB_OUTPUT
-          else
-            APPS="${{ github.event.client_payload.apps }}"
-            echo "apps_dir=${{ github.event.client_payload.apps_dir }}" >> $GITHUB_OUTPUT
-          fi
+          APPS="${{ github.event.inputs.apps }}"
+          echo "apps_dir=${{ github.event.inputs.apps_dir }}" >> $GITHUB_OUTPUT
 
           APPS_JSON=$(echo "$APPS" | tr ',' '\n' | awk '{$1=$1};1' | sed '/^$/d' | jq -R . | jq -s . | tr -d '\n')
           echo "apps=$APPS_JSON" >> $GITHUB_OUTPUT
@@ -61,7 +47,8 @@ jobs:
           echo "repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
           echo "event_repo=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
-  build-and-push:
+  build-and-release:
+    name: Build and release
     needs: check-bump
     runs-on: ubuntu-latest
     strategy:
@@ -69,7 +56,9 @@ jobs:
         app: ${{ fromJson(needs.check-bump.outputs.bumped_apps) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get app version
         id: version
@@ -78,10 +67,10 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -89,7 +78,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
@@ -109,20 +98,22 @@ jobs:
           name: image-digests-${{ matrix.app }}
           path: digest.txt
 
-  prepare-gitops:
-    needs: [check-bump, build-and-push]
+  pre-deploy:
+    needs: [check-bump, build-and-release]
     runs-on: ubuntu-latest
-
+    outputs:
+      apps: ${{ steps.export-apps.outputs.apps }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: digests
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: local
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: ijskoud/homelab-gitops
           token: ${{ secrets.GITOPS_TOKEN }}
@@ -131,7 +122,7 @@ jobs:
       - name: Prepare app list
         run: echo '${{ needs.check-bump.outputs.bumped_apps }}' > apps.json
 
-      - name: Update ALL deployments (single commit)
+      - name: Update deployment files for bumped apps
         run: |
           cd gitops
           APPS=$(cat ../apps.json | jq -r '.[]')
@@ -157,153 +148,21 @@ jobs:
             echo "✅ Deployment written to $DEPLOYMENT_FILE"
           done
 
-      - name: Commit once for all apps
+      - name: Commit changes to gitops repository
         run: |
           cd gitops
           APPS=$(cat ../apps.json | jq -r '.[]')
 
-          git config user.email "action@github.com"
-          git config user.name "GitHub Action"
+          git config user.email "noreply@github.com"
+          git config user.name "versioning-release-bot"
           git add .
 
           if ! git diff --staged --quiet; then
             git commit -m "chore: update image(s) for app(s): $APPS from ${{ needs.check-bump.outputs.event_repo }}"
             git push
           else
-            echo "No changes to commit for ${{ needs.check-bump.outputs.event_repo }}-${{ matrix.app }}"
+            echo "No changes to commit for $APPS"
           fi
-
-  deploy:
-    needs: [check-bump, build-and-push]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        app: ${{ fromJson(needs.check-bump.outputs.bumped_apps) }}
-    environment:
-      name: production-${{ matrix.app }}
-      url: https://github.com/ijskoud/homelab-gitops
-    steps:
-      - name: Download image digests
-        uses: actions/download-artifact@v4
-        with:
-          name: image-digests-${{ matrix.app }}
-          path: digests/
-
-      - name: Checkout local repo
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          path: local
-
-      - name: Checkout GitOps repo
-        uses: actions/checkout@v4
-        with:
-          repository: ijskoud/homelab-gitops
-          token: ${{ secrets.GITOPS_TOKEN }}
-          path: gitops
-
-      - name: Setup Tailscale
-        uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ secrets.TAILSCALE_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TAILSCALE_CLIENT_SECRET }}
-          tags: tag:ci
-
-      - name: Create ArgoCD application if needed and trigger sync for ${{ matrix.app }}
-        run: |
-          APP_NAME="${{ needs.check-bump.outputs.event_repo }}-${{ matrix.app }}"
-          ARGOCD_URL="${{ secrets.ARGOCD_SERVER_URL }}"
-          TOKEN="${{ secrets.ARGOCD_TOKEN }}"
-
-          echo "Checking if ArgoCD application $APP_NAME exists..."
-          APP_EXISTS=$(curl -s -o /dev/null -w "%{http_code}" "$ARGOCD_URL/api/v1/applications/$APP_NAME" \
-            -H "Authorization: Bearer $TOKEN")
-
-          if [ "$APP_EXISTS" = "403" ]; then
-            echo "Application $APP_NAME does not exist. Creating it..."
-            CREATE_PAYLOAD=$(cat << 'EOF'
-          {
-            "metadata": {
-              "name": "APP_NAME_PLACEHOLDER"
-            },
-            "spec": {
-              "project": "default",
-              "source": {
-                "repoURL": "https://github.com/ijskoud/homelab-gitops",
-                "path": "apps/APP_NAME_PLACEHOLDER",
-                "targetRevision": "HEAD"
-              },
-              "destination": {
-                "server": "https://kubernetes.default.svc",
-                "namespace": "default"
-              },
-              "syncPolicy": {
-                "syncPolicy": {
-                  "syncOptions": [
-                    "CreateNamespace=true"
-                  ]
-                }
-              }
-            }
-          }
-          EOF
-            )
-            CREATE_PAYLOAD=$(echo "$CREATE_PAYLOAD" | sed "s|APP_NAME_PLACEHOLDER|$APP_NAME|g")
-
-            curl -X POST "$ARGOCD_URL/api/v1/applications" \
-              -H "Authorization: Bearer $TOKEN" \
-              -H "Content-Type: application/json" \
-              -d "$CREATE_PAYLOAD" \
-              --fail \
-              --silent \
-              --show-error
-            echo "ArgoCD application $APP_NAME created successfully."
-          else
-            echo "ArgoCD application $APP_NAME already exists."
-          fi
-
-          echo "Triggering ArgoCD sync for application: $APP_NAME"
-          curl -X POST "$ARGOCD_URL/api/v1/applications/$APP_NAME/sync" \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{}' \
-            --fail \
-            --silent \
-            --show-error
-
-          echo "ArgoCD sync triggered. Waiting for deployment to complete..."
-
-          # Poll for sync completion
-          TIMEOUT=600  # 10 minutes
-          INTERVAL=30  # Check every 30 seconds
-          ELAPSED=0
-          STATUS_SUCCESS_COUNT_REQUIRED=3 # Require 3 consecutive successful checks to confirm stability
-          STATUS_SUCESS_COUNT=0
-
-          while [ $ELAPSED -lt $TIMEOUT ]; do
-            RESPONSE=$(curl -s "$ARGOCD_URL/api/v1/applications/$APP_NAME" \
-              -H "Authorization: Bearer $TOKEN")
-
-            SYNC_STATUS=$(echo "$RESPONSE" | jq -r '.status.sync.status')
-            HEALTH_STATUS=$(echo "$RESPONSE" | jq -r '.status.health.status')
-
-            echo "Sync status: $SYNC_STATUS, Health status: $HEALTH_STATUS (elapsed: ${ELAPSED}s)"
-
-            if [ "$SYNC_STATUS" = "Synced" ] && [ "$HEALTH_STATUS" = "Healthy" ]; then
-              STATUS_SUCESS_COUNT=$((STATUS_SUCESS_COUNT + 1))
-            else
-              STATUS_SUCESS_COUNT=0 # Reset success count if any check fails
-            fi
-
-            if [ $STATUS_SUCESS_COUNT -ge $STATUS_SUCCESS_COUNT_REQUIRED ]; then
-              echo "✅ Deployment successful! Application $APP_NAME is synced and healthy."
-              exit 0
-            fi
-
-            sleep $INTERVAL
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
-
-          echo "❌ Timeout: Deployment did not complete within $TIMEOUT seconds."
-          echo "Final status - Sync: $SYNC_STATUS, Health: $HEALTH_STATUS"
-          exit 1
+      - name: Export apps for deploy job
+        id: export-apps
+        run: echo "apps=${{ needs.check-bump.outputs.bumped_apps }}" >> $GITHUB_OUTPUT
