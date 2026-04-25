@@ -16,9 +16,10 @@ on:
         description: "Type of version bump (major, minor, patch)"
         type: string
         required: true
-      github_app_token:
-        description: "GitHub token for authentication"
-        type: string
+    secrets:
+      APP_CLIENT_ID:
+        required: true
+      APP_PRIVATE_KEY:
         required: true
 
 jobs:
@@ -26,10 +27,17 @@ jobs:
     name: Bump versions
     runs-on: ubuntu-latest
     steps:
+      - name: Create GitHub App Token
+        uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Checkout code
         uses: actions/checkout@v6
         with:
-          token: ${{ inputs.github_app_token }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Set inputs
         id: set-inputs
@@ -84,11 +92,17 @@ jobs:
             sed -i "s/version = \".*\"/version = \"$new_version\"/" "$file"
           done
 
+      - name: Setup git user
+        id: setup-git-user
+        run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      - run: |
+          git config --global user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
+          git config --global user.email '${{ steps.setup-git-user.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com'
+
       - name: Commit changes
         run: |
-          git config --local user.email "noreply@github.com"
-          git config --local user.name "versioning-release-bot"
-
           git add .
           if git diff --staged --quiet; then
             echo "No changes to commit"
@@ -101,7 +115,7 @@ jobs:
         if: success()
         run: |
           curl -X POST \
-           -H "Authorization: token ${{ inputs.github_app_token }}" \
+           -H "Authorization: token ${{ steps.app-token.outputs.token }}" \
            -H "Accept: application/vnd.github.v3+json" \
            https://api.github.com/repos/${{ github.repository }}/dispatches \
            -d '{"event_type": "version-bumped", "client_payload": {"apps": "${{ steps.set-inputs.outputs.apps }}", "apps_dir": "${{ steps.set-inputs.outputs.apps_dir }}"}}'
