@@ -100,7 +100,7 @@ jobs:
         run: echo "${{ steps.build.outputs.digest }}" > digest.txt
 
       - name: Upload image digests
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: image-digests-${{ matrix.app }}
           path: digest.txt
@@ -122,9 +122,10 @@ jobs:
             ${{ needs.check-bump.outputs.event_repo }}
             homelab-gitops
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: digests
+          pattern: "!*.dockerbuild"
 
       - uses: actions/checkout@v6
         with:
