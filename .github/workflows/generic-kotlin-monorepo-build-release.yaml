@@ -10,8 +10,6 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  repository_dispatch:
-    types: [version-bumped]
   workflow_call:
     inputs:
       apps_dir:
@@ -23,7 +21,17 @@ on:
         description: 'Comma-separated list of app names to build and deploy'
         type: string
         required: true
-
+    secrets:
+      GITOPS_TOKEN:
+        required: true
+      ARGOCD_TOKEN: 
+        required: true
+      ARGOCD_SERVER_URL:
+        required: true
+      TAILSCALE_CLIENT_ID:
+        required: true
+      TAILSCALE_CLIENT_SECRET:
+        required: true
 jobs:
   check-bump:
     runs-on: ubuntu-latest
