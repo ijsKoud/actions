@@ -4,76 +4,66 @@ on:
   workflow_call:
     inputs:
       apps_dir:
-        description: 'Directory containing the apps'
+        description: "Directory containing the apps"
         type: string
-        default: 'src/apps'
+        default: "src/apps"
         required: false
       apps:
-        description: 'Comma-separated list of app names to update'
+        description: "Comma-separated list of app names to update"
         type: string
         required: true
       bump_type:
-        description: 'Type of version bump (major, minor, patch)'
+        description: "Type of version bump (major, minor, patch)"
         type: string
         required: true
-  workflow_dispatch:
-    inputs:
-      apps_dir:
-        description: 'Directory containing the apps'
-        type: string
-        default: 'src/apps'
-        required: false
-      apps:
-        description: 'Comma-separated list of app names to update'
-        type: string
-        required: true
-      bump_type:
-        description: 'Type of version bump (major, minor, patch)'
-        type: choice
-        options:
-          - major
-          - minor
-          - patch
+    secrets:
+      GITHUB_TOKEN:
+        description: "GitHub token for authentication"
         required: true
 
 jobs:
-  update-versions:
+  bump-versions:
+    name: Bump versions
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set inputs
         id: set-inputs
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "apps_dir=${{ github.event.inputs.apps_dir }}" >> $GITHUB_OUTPUT
-            echo "apps=${{ github.event.inputs.apps }}" >> $GITHUB_OUTPUT
-            echo "bump_type=${{ github.event.inputs.bump_type }}" >> $GITHUB_OUTPUT
-          else
-            echo "apps_dir=${{ inputs.apps_dir }}" >> $GITHUB_OUTPUT
-            echo "apps=${{ inputs.apps }}" >> $GITHUB_OUTPUT
-            echo "bump_type=${{ inputs.bump_type }}" >> $GITHUB_OUTPUT
-          fi
+          echo "apps_dir=${{ github.event.inputs.apps_dir }}" >> $GITHUB_OUTPUT
+          echo "apps=${{ github.event.inputs.apps }}" >> $GITHUB_OUTPUT
+          echo "bump_type=${{ github.event.inputs.bump_type }}" >> $GITHUB_OUTPUT
 
-      - name: Update versions
+          echo "Received inputs:"
+          echo "- apps_dir: ${{ github.event.inputs.apps_dir }}"
+          echo "- apps: ${{ github.event.inputs.apps }}"
+          echo "- bump_type: ${{ github.event.inputs.bump_type }}"
+
+      - name: Bump versions
         run: |
           IFS=',' read -ra APP_ARRAY <<< "${{ steps.set-inputs.outputs.apps }}"
+
           for app in "${APP_ARRAY[@]}"; do
             app=$(echo "$app" | xargs)  # trim whitespace
             file="${{ steps.set-inputs.outputs.apps_dir }}/$app/build.gradle.kts"
+
             if [ ! -f "$file" ]; then
               echo "File $file not found"
               exit 1
             fi
+
             current_version=$(grep 'version = ' "$file" | sed 's/version = "\(.*\)"/\1/')
             echo "Current version for $app: $current_version"
+
             IFS='.' read -ra VERSION_PARTS <<< "$current_version"
             major=${VERSION_PARTS[0]}
             minor=${VERSION_PARTS[1]}
             patch=${VERSION_PARTS[2]}
+
             case "${{ steps.set-inputs.outputs.bump_type }}" in
               major)
                 major=$((major + 1))
@@ -88,15 +78,17 @@ jobs:
                 patch=$((patch + 1))
                 ;;
             esac
+
             new_version="$major.$minor.$patch"
-            echo "New version for $app: $new_version"
+            echo "> New version for $app: $new_version"
             sed -i "s/version = \".*\"/version = \"$new_version\"/" "$file"
           done
 
       - name: Commit changes
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.email "noreply@github.com"
+          git config --local user.name "versioning-release-bot"
+
           git add .
           if git diff --staged --quiet; then
             echo "No changes to commit"
@@ -108,9 +100,8 @@ jobs:
       - name: Trigger build workflow
         if: success()
         run: |
-            curl -X POST \
-             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-             -H "Accept: application/vnd.github.v3+json" \
-             https://api.github.com/repos/${{ github.repository }}/dispatches \
-             -d '{"event_type": "version-bumped", "client_payload": {"apps": "${{ steps.set-inputs.outputs.apps }}", "apps_dir": "${{ steps.set-inputs.outputs.apps_dir }}"}}'
-  
+          curl -X POST \
+           -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+           -H "Accept: application/vnd.github.v3+json" \
+           https://api.github.com/repos/${{ github.repository }}/dispatches \
+           -d '{"event_type": "version-bumped", "client_payload": {"apps": "${{ steps.set-inputs.outputs.apps }}", "apps_dir": "${{ steps.set-inputs.outputs.apps_dir }}"}}'

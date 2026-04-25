@@ -1,0 +1,133 @@
+name: Generic Application Deploy
+
+permissions:
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_call:
+    inputs:
+      apps:
+        description: "Comma-separated list of app names to build and deploy"
+        type: string
+        required: true
+    secrets:
+      GITOPS_TOKEN:
+        required: true
+      ARGOCD_TOKEN:
+        required: true
+      ARGOCD_SERVER_URL:
+        required: true
+      TAILSCALE_CLIENT_ID:
+        required: true
+      TAILSCALE_CLIENT_SECRET:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: ${{ fromJson(github.events.inputs.apps) }}
+    environment:
+      name: production-${{ matrix.app }}
+      url: https://github.com/ijskoud/homelab-gitops
+    steps:
+      - name: Download image digests
+        uses: actions/download-artifact@v4
+        with:
+          name: image-digests-${{ matrix.app }}
+          path: digests/
+
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: ijskoud/homelab-gitops
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops
+
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_CLIENT_SECRET }}
+          tags: tag:ci
+
+      - name: Create ArgoCD application if needed and trigger sync for ${{ matrix.app }}
+        run: |
+          TEMPLATE_FILE="gitops/template/application.template.json"
+          APP_NAME="${{ needs.check-bump.outputs.event_repo }}-${{ matrix.app }}"
+          ARGOCD_URL="${{ secrets.ARGOCD_SERVER_URL }}"
+          TOKEN="${{ secrets.ARGOCD_TOKEN }}"
+
+          echo "Checking if ArgoCD application $APP_NAME exists..."
+          APP_EXISTS=$(curl -s -o /dev/null -w "%{http_code}" "$ARGOCD_URL/api/v1/applications/$APP_NAME" \
+            -H "Authorization: Bearer $TOKEN")
+
+          if [ "$APP_EXISTS" = "403" ]; then
+            echo "Application $APP_NAME does not exist. Creating it..."
+            CREATE_PAYLOAD=$(cat "$TEMPLATE_FILE")
+            CREATE_PAYLOAD=$(echo "$CREATE_PAYLOAD" | sed "s|APP_NAME_PLACEHOLDER|$APP_NAME|g")
+
+            curl -X POST "$ARGOCD_URL/api/v1/applications" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$CREATE_PAYLOAD" \
+              --fail \
+              --silent \
+              --show-error
+            echo "ArgoCD application $APP_NAME created successfully."
+          else
+            echo "ArgoCD application $APP_NAME already exists."
+          fi
+      - name: Trigger sync on ArgoCD
+        run: |
+          echo "Triggering ArgoCD sync for application: $APP_NAME"
+          curl -X POST "$ARGOCD_URL/api/v1/applications/$APP_NAME/sync" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            --fail \
+            --silent \
+            --show-error
+      - name: Wait for ArgoCD sync to complete
+        run: |
+          echo "ArgoCD sync triggered. Waiting for deployment to complete..."
+
+          # Poll for sync completion
+          TIMEOUT=600  # 10 minutes
+          INTERVAL=30  # Check every 30 seconds
+          STATUS_SUCCESS_COUNT_REQUIRED=3 # Require 3 consecutive successful checks to confirm stability
+          STATUS_SUCESS_COUNT=0
+          ELAPSED=0
+
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            RESPONSE=$(curl -s "$ARGOCD_URL/api/v1/applications/$APP_NAME" \
+              -H "Authorization: Bearer $TOKEN")
+
+            SYNC_STATUS=$(echo "$RESPONSE" | jq -r '.status.sync.status')
+            HEALTH_STATUS=$(echo "$RESPONSE" | jq -r '.status.health.status')
+
+            echo "Sync status: $SYNC_STATUS, Health status: $HEALTH_STATUS (elapsed: ${ELAPSED}s)"
+
+            if [ "$SYNC_STATUS" = "Synced" ] && [ "$HEALTH_STATUS" = "Healthy" ]; then
+              STATUS_SUCESS_COUNT=$((STATUS_SUCESS_COUNT + 1))
+            else
+              STATUS_SUCESS_COUNT=0 # Reset success count if any check fails
+            fi
+
+            if [ $STATUS_SUCESS_COUNT -ge $STATUS_SUCCESS_COUNT_REQUIRED ]; then
+              echo "✅ Deployment successful! Application $APP_NAME is synced and healthy."
+              exit 0
+            fi
+
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          echo "❌ Timeout: Deployment did not complete within $TIMEOUT seconds."
+          echo "Final status - Sync: $SYNC_STATUS, Health: $HEALTH_STATUS"
+          exit 1
