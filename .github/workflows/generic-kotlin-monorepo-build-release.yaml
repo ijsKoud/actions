@@ -16,9 +16,10 @@ on:
         description: "Comma-separated list of app names to build and deploy"
         type: string
         required: true
-    secrets:
-      APP_TOKEN:
+      github_app_token:
+        description: "GitHub token for authentication"
         required: true
+    secrets:
       GITOPS_TOKEN:
         required: true
 
@@ -58,7 +59,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
-          token: ${{ secrets.APP_TOKEN }}
+          token: ${{ inputs.github_app_token }}
 
       - name: Get app version
         id: version
@@ -74,7 +75,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.APP_TOKEN }}
+          password: ${{ inputs.github_app_token }}
 
       - name: Build and push Docker image
         id: build
@@ -111,7 +112,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           path: local
-          token: ${{ secrets.APP_TOKEN }}
+          token: ${{ inputs.github_app_token }}
 
       - uses: actions/checkout@v6
         with:

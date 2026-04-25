@@ -16,8 +16,7 @@ on:
         description: "Type of version bump (major, minor, patch)"
         type: string
         required: true
-    secrets:
-      APP_TOKEN:
+      github_app_token:
         description: "GitHub token for authentication"
         required: true
 
@@ -29,7 +28,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
-          token: ${{ secrets.APP_TOKEN }}
+          token: ${{ inputs.github_app_token }}
 
       - name: Set inputs
         id: set-inputs
@@ -101,7 +100,7 @@ jobs:
         if: success()
         run: |
           curl -X POST \
-           -H "Authorization: token ${{ secrets.APP_TOKEN }}" \
+           -H "Authorization: token ${{ inputs.github_app_token }}" \
            -H "Accept: application/vnd.github.v3+json" \
            https://api.github.com/repos/${{ github.repository }}/dispatches \
            -d '{"event_type": "version-bumped", "client_payload": {"apps": "${{ steps.set-inputs.outputs.apps }}", "apps_dir": "${{ steps.set-inputs.outputs.apps_dir }}"}}'
