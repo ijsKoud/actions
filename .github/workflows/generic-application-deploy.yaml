@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        app: ${{ fromJson(github.events.inputs.apps) }}
+        app: ${{ fromJson(inputs.apps) }}
     environment:
       name: production-${{ matrix.app }}
       url: https://github.com/ijskoud/homelab-gitops
