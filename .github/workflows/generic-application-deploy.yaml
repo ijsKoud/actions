@@ -57,13 +57,13 @@ jobs:
       url: https://github.com/ijskoud/homelab-gitops
     steps:
       - name: Download image digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: image-digests-${{ matrix.app }}
           path: digests/
 
       - name: Checkout GitOps repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ijskoud/homelab-gitops
           token: ${{ secrets.GITOPS_TOKEN }}
