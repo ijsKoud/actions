@@ -7,7 +7,7 @@
     "build": "tsc && ncc build dist/src/index.js -o out"
   },
   "dependencies": {
-    "@actions/core": "^3.0.0",
+    "@actions/core": "^3.0.1",
     "yaml": "^2.8.3",
     "zod": "4.3.6"
   },
