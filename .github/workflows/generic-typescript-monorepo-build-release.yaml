@@ -93,7 +93,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/arm64
           build-args: |
-            APP=${{ needs.prepare.outputs.repo }}-${{ matrix.app }}
+            APP=${{ matrix.app }}
             VERSION=${{ steps.version.outputs.version }}
           push: true
           tags: ghcr.io/${{ needs.prepare.outputs.repo }}-${{ matrix.app }}:${{ steps.version.outputs.version }}
