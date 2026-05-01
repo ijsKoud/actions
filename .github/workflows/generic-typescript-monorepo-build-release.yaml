@@ -50,7 +50,7 @@ jobs:
   build-and-release:
     name: Build and release
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     strategy:
       matrix:
         app: ${{ fromJson(needs.prepare.outputs.bumped_apps) }}
