@@ -93,9 +93,9 @@ jobs:
           if [ "$PROJECT_STATUS" != "200" ]; then
             echo "Project $PROJECT_NAME does not exist. Creating it..."
 
-            CREATE_PAYLOAD=$(cat "$TEMPLATE_FILE")
-            CREATE_PAYLOAD=$(echo "$CREATE_PAYLOAD" | sed "s|PROJECT_NAME_PLACEHOLDER|$PROJECT_NAME|g")
-            CREATE_PAYLOAD=$(echo "$CREATE_PAYLOAD" | sed "s|PROJECT_REPO_URL|$PROJECT_URL|g")
+            PROJECT_PAYLOAD=$(cat "$TEMPLATE_FILE")
+            PROJECT_PAYLOAD=$(echo "$PROJECT_PAYLOAD" | sed "s|PROJECT_NAME_PLACEHOLDER|$PROJECT_NAME|g")
+            PROJECT_PAYLOAD=$(echo "$PROJECT_PAYLOAD" | sed "s|PROJECT_REPO_URL|$PROJECT_URL|g")
 
             curl -X POST "$ARGOCD_URL/api/v1/projects" \
               -H "Authorization: Bearer $TOKEN" \
