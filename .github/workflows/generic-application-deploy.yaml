@@ -76,9 +76,44 @@ jobs:
           oauth-secret: ${{ secrets.TAILSCALE_CLIENT_SECRET }}
           tags: tag:ci
 
+      - name: Ensure ArgoCD project exists
+        run: |
+          TEMPLATE_FILE="gitops/template/project.template.json"
+          PROJECT_NAME="${{ needs.prepare.outputs.event_repo }}"
+          PROJECT_URL="https://github.com/${{ needs.prepare.outputs.repo }}"
+
+          ARGOCD_URL="${{ secrets.ARGOCD_SERVER_URL }}"
+          TOKEN="${{ secrets.ARGOCD_TOKEN }}"
+
+          echo "Checking if ArgoCD project $PROJECT_NAME exists..."
+          PROJECT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$ARGOCD_URL/api/v1/projects/$PROJECT_NAME" \
+            -H "Authorization: Bearer $TOKEN")
+
+          if [ "$PROJECT_STATUS" != "200" ]; then
+            echo "Project $PROJECT_NAME does not exist. Creating it..."
+
+            CREATE_PAYLOAD=$(cat "$TEMPLATE_FILE")
+            CREATE_PAYLOAD=$(echo "$CREATE_PAYLOAD" | sed "s|PROJECT_NAME_PLACEHOLDER|$PROJECT_NAME|g")
+            CREATE_PAYLOAD=$(echo "$CREATE_PAYLOAD" | sed "s|PROJECT_REPO_URL|$PROJECT_URL|g")
+
+            curl -X POST "$ARGOCD_URL/api/v1/projects" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$PROJECT_PAYLOAD" \
+              --fail \
+              --silent \
+              --show-error
+
+            echo "ArgoCD project $PROJECT_NAME created successfully."
+          else
+            echo "ArgoCD project $PROJECT_NAME already exists."
+          fi
+
       - name: Create ArgoCD application if needed and trigger sync for ${{ matrix.app }}
         run: |
           TEMPLATE_FILE="gitops/template/application.template.json"
+          PROJECT_NAME="${{ needs.prepare.outputs.event_repo }}"
           APP_NAME="${{ needs.prepare.outputs.event_repo }}-${{ matrix.app }}"
           ARGOCD_URL="${{ secrets.ARGOCD_SERVER_URL }}"
           TOKEN="${{ secrets.ARGOCD_TOKEN }}"
@@ -87,10 +122,11 @@ jobs:
           APP_EXISTS=$(curl -s -o /dev/null -w "%{http_code}" "$ARGOCD_URL/api/v1/applications/$APP_NAME" \
             -H "Authorization: Bearer $TOKEN")
 
-          if [ "$APP_EXISTS" = "403" ]; then
+          if [ "$APP_EXISTS" != "200" ]; then
             echo "Application $APP_NAME does not exist. Creating it..."
             CREATE_PAYLOAD=$(cat "$TEMPLATE_FILE")
             CREATE_PAYLOAD=$(echo "$CREATE_PAYLOAD" | sed "s|APP_NAME_PLACEHOLDER|$APP_NAME|g")
+            CREATE_PAYLOAD=$(echo "$CREATE_PAYLOAD" | sed "s|PROJECT_NAME_PLACEHOLDER|$PROJECT_NAME|g")
 
             curl -X POST "$ARGOCD_URL/api/v1/applications" \
               -H "Authorization: Bearer $TOKEN" \
